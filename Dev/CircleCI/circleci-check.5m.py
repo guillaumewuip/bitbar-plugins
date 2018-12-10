@@ -77,21 +77,40 @@ CIRCLECI_LOGO = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA40lEQVR4AaXTJVA
 
 pp = pprint.PrettyPrinter(indent=2)
 
-def getStatusFromBuilds(builds):
-    status = set([ build['status'] for build in builds ])
-    return status
+def getWorstStatusFromWorfklows(workflows):
+    if len(workflows) == 0:
+        return None
 
-def getWorstStatus(status):
     statusPriorities = [
-        { 'status': s, 'priority': STATUS_PRIORITIES[s] } for s in status
+        {
+            'status': workflow.status,
+            'priority': STATUS_PRIORITIES[workflow.status],
+        }
+        for workflow in workflows
     ]
 
     statusPriorities.sort(key = lambda s: s['priority'], reverse = True)
 
     return statusPriorities[0]['status']
 
+def getLastWorkflow(workflows):
+    if len(workflows) == 0:
+        return None
+
+    workflows.sort(key = lambda w: w.startDate, reverse = True)
+    return workflows[0]
+
+def isOlderThan(dateToCompare, maxDay):
+    now = datetime.now()
+    daysSinceDate = (now - dateToCompare).days
+
+    return daysSinceDate > maxDay
+
+def isBuildErrorWorkflow(name):
+    return name == 'Build%20Error'
+
 def getLastActivityDateFromBuilds(builds):
-    dates = [ build['pushed_at'] for build in builds ]
+    dates = [ build['added-at'] for build in builds ]
     return datetime.strptime(dates[0], "%Y-%m-%dT%H:%M:%S.%fZ")
 
 def getColor(status):
@@ -101,9 +120,9 @@ def getSymbol(status):
     return SYMBOLS.get(status, NO_SYMBOL)
 
 def getBuildName(build):
-    if 'workflows' in build:
-        if 'workflow_name' in build['workflows']:
-            return build['workflows']['workflow_name']
+    workflow = build.get('workflows')
+    if workflow:
+        return workflow.get('job_name')
 
     return '?'
 
@@ -115,6 +134,18 @@ def isBranchFailed(branch):
 
 def isBranchCanceled(branch):
     return branch.status in ['canceled']
+
+def getBranchLastSuccessDate(branch):
+    if 'last_success' in branch:
+        return datetime.strptime(branch['last_success']['pushed_at'], "%Y-%m-%dT%H:%M:%S.%fZ")
+
+    return datetime.min
+
+def getBranchLastNonSuccessDate(branch):
+    if 'last_non_success' in branch:
+        return datetime.strptime(branch['last_non_success']['pushed_at'], "%Y-%m-%dT%H:%M:%S.%fZ")
+
+    return datetime.min
 
 class Ressource:
     def __init__(self, baseURL, apiToken):
@@ -140,7 +171,10 @@ class Ressource:
         return r.json()
 
     def getProjects(self):
-        return self.getJSON('projects')
+        return self.getJSON('projects', {
+            'shallow': True,
+            'branch_limit': 100,
+        })
 
     def getBuildsForBranch(self, username, reponame, branch, limit):
         uri = 'project/github/{}/{}/tree/{}'.format(
@@ -173,15 +207,20 @@ class Project:
         )
         output.append(projectTitle)
 
-        filterdBranches = [
-            branch for branch in self.branches if self.check.shouldShowBranch(branch)
-        ]
-        branches = sorted(filterdBranches)
+        branches = sorted(self.branches)
 
         for branch in branches:
             output.append(str(branch))
 
         return '\n'.join(output)
+
+class Workflow:
+    def __init__(self, id, name, status, startDate):
+        self.id = id
+        self.name = name
+        self.status = status
+
+        self.startDate = datetime.strptime(startDate, "%Y-%m-%dT%H:%M:%S.%fZ")
 
 class BuildDetail:
     def __init__(self, project, buildNumber, buildName, status):
@@ -221,6 +260,7 @@ class Branch:
             status,
             lastActivityDate,
             usernames,
+            workflow,
             details,
     ):
         self.project = project
@@ -230,15 +270,18 @@ class Branch:
         self.lastActivityDate = lastActivityDate
         self.usernames = usernames
 
+        self.workflow = workflow
         self.details = details
 
     def getLink(self):
-        BASE_URL = 'https://circleci.com/gh/{}/{}/tree/{}'
-        return BASE_URL.format(
-            self.project.username,
-            self.project.reponame,
-            self.name,
-        )
+        BASE_URL = 'https://circleci.com/workflow-run/{}'
+
+        if self.workflow:
+            return BASE_URL.format(
+                self.workflow.id,
+            )
+
+        return ''
 
     def __lt__(self, otherBranch):
         if self.name == 'master': # always show master first
@@ -270,7 +313,6 @@ class Branch:
 
         return '\n'.join(output)
 
-
 class CircleCICheck:
     def __init__(self, config):
         self.config = config
@@ -283,21 +325,21 @@ class CircleCICheck:
         self.nbFailedBranches = 0
         self.nbCanceledBranches = 0
 
-    def shouldShowBranch(self, branch):
-        isMaster = branch.name == 'master'
-        if config['alwaysShowMaster'] and isMaster:
+    def shouldShowBranch(self, branchName, branchLastActivityDate, branchUsernames):
+        isMaster = branchName == 'master'
+        if self.config['alwaysShowMaster'] and isMaster:
             return True
 
         now = datetime.now()
-        daysSinceBuild = (now - branch.lastActivityDate).days
+        daysSinceBuild = (now - branchLastActivityDate).days
 
-        if (daysSinceBuild > config['maxDaySinceBuild']):
+        if isOlderThan(branchLastActivityDate, self.config.get('maxDaySinceBuild')):
             return False
 
-        usernames = config['usernamesFilter']
+        usernames = self.config['usernamesFilter']
         hasUsernamesFilter = len(usernames) > 0
         isBranchFromFilteredUsernames = not hasUsernamesFilter or (
-            bool(set(usernames) & set(branch.usernames))
+            bool(set(usernames) & set(branchUsernames))
         )
 
         return isBranchFromFilteredUsernames
@@ -307,7 +349,6 @@ class CircleCICheck:
             branch
             for project in self.projects
             for branch in project.branches
-            if self.shouldShowBranch(branch)
         ]
 
         runningBranches = [
@@ -339,33 +380,49 @@ class CircleCICheck:
 
             circleCIBranches = circleCIProject['branches']
             for branchName, branch in circleCIBranches.items():
-                recentBuilds = []
-                runningBuilds = []
-                hasRunningBuilds = False
-                hasRecentBuilds = False
+                name = unquote(branchName)
 
-                if 'recent_builds' in branch:
-                    recentBuilds = branch['recent_builds']
-                    hasRecentBuilds = len(recentBuilds) > 0
+                workflows = []
+                lastestWorkflows = branch.get('latest_workflows', [])
 
-                if 'running_builds' in branch:
-                    runningBuilds = branch['running_builds']
-                    hasRunningBuilds = len(runningBuilds) > 0
+                for workflowName, workflow in lastestWorkflows.items():
+                    workflows.append(Workflow(
+                        workflow['id'],
+                        workflowName,
+                        workflow['status'],
+                        workflow['created_at'],
+                    ))
 
-                if hasRunningBuilds or hasRecentBuilds:
-                    usernames = branch['pusher_logins']
+                builds = branch.get('recent_builds', []) + branch.get('running_builds', [])
+                hasBuilds = len(builds) > 0
 
-                    branchStatus = None
-                    if hasRunningBuilds:
-                        branchStatus = 'running'
-                    else:
-                        branchStatus = getWorstStatus(getStatusFromBuilds(recentBuilds))
+                if hasBuilds:
+                    usernames = branch.get('pusher_logins', [])
+                    lastActivityDate = getLastActivityDateFromBuilds(builds)
 
-                    lastActivityDate = getLastActivityDateFromBuilds(runningBuilds + recentBuilds)
+                    shouldShowBranch = self.shouldShowBranch(
+                        name,
+                        lastActivityDate,
+                        usernames
+                    )
+
+                    if not shouldShowBranch:
+                        continue
+
+                    recentWorkflows = [
+                        w for w in workflows
+                        if not isOlderThan(w.startDate, self.config.get('maxDaySinceBuild'))
+                        and not isBuildErrorWorkflow(w.name)
+                    ]
+
+                    if len(recentWorkflows) == 0:
+                        continue
+
+                    status = getWorstStatusFromWorfklows(recentWorkflows)
 
                     details = []
 
-                    if branchStatus in NEED_DETAILS_STATUS: # not ok status
+                    if status in NEED_DETAILS_STATUS: # not ok status
                         circleCIBuilds = self.ressource.getBuildsForBranch(
                             project.username,
                             project.reponame,
@@ -375,8 +432,8 @@ class CircleCICheck:
 
                         for build in circleCIBuilds:
                             buildName = getBuildName(build)
-                            buildNumber = build['build_num']
-                            buildStatus = build['status']
+                            buildNumber = build.get('build_num')
+                            buildStatus = build.get('status')
 
                             detail = BuildDetail(
                                 project,
@@ -386,18 +443,21 @@ class CircleCICheck:
                             )
                             details.append(detail)
 
+                    lastWorkflow = getLastWorkflow(workflows)
                     branch = Branch(
                         project,
-                        unquote(branchName),
-                        branchStatus,
+                        name,
+                        status,
                         lastActivityDate,
                         usernames,
+                        lastWorkflow,
                         details,
                     )
 
                     project.addBranch(branch)
 
-            self.projects.append(project)
+            if len(project.branches) > 0:
+                self.projects.append(project)
 
             self.computeStats()
 
