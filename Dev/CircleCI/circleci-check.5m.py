@@ -135,18 +135,6 @@ def isBranchFailed(branch):
 def isBranchCanceled(branch):
     return branch.status in ['canceled']
 
-def getBranchLastSuccessDate(branch):
-    if 'last_success' in branch:
-        return datetime.strptime(branch['last_success']['pushed_at'], "%Y-%m-%dT%H:%M:%S.%fZ")
-
-    return datetime.min
-
-def getBranchLastNonSuccessDate(branch):
-    if 'last_non_success' in branch:
-        return datetime.strptime(branch['last_non_success']['pushed_at'], "%Y-%m-%dT%H:%M:%S.%fZ")
-
-    return datetime.min
-
 class Ressource:
     def __init__(self, baseURL, apiToken):
         self.apiToken = apiToken
@@ -185,17 +173,24 @@ class Ressource:
         return self.getJSON(uri, { 'limit': limit })
 
 class Project:
-    def __init__(self, check, username, reponame, repolink):
+    def __init__(self, check, username, reponame):
         self.check = check
 
         self.username = username
         self.reponame = reponame
-        self.repolink = repolink
 
         self.branches = []
 
     def addBranch(self, branch):
         self.branches.append(branch)
+
+    def getLink(self):
+        BASE_URL = 'https://circleci.com/gh/{}/workflows/{}'
+
+        return BASE_URL.format(
+            self.username,
+            self.reponame
+        )
 
     def __str__(self):
         output = []
@@ -203,7 +198,7 @@ class Project:
         projectTitle = '{}/{} | href={}'.format(
             self.username,
             self.reponame,
-            self.repolink
+            self.getLink()
         )
         output.append(projectTitle)
 
@@ -375,7 +370,6 @@ class CircleCICheck:
                 self,
                 circleCIProject['username'],
                 circleCIProject['reponame'],
-                circleCIProject['vcs_url']
             )
 
             circleCIBranches = circleCIProject['branches']
@@ -414,6 +408,7 @@ class CircleCICheck:
                         if not isOlderThan(w.startDate, self.config.get('maxDaySinceBuild'))
                         and not isBuildErrorWorkflow(w.name)
                     ]
+
 
                     if len(recentWorkflows) == 0:
                         continue
