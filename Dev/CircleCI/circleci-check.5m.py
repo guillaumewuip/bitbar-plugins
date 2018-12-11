@@ -13,6 +13,7 @@ from dotenv import load_dotenv, find_dotenv
 SYMBOLS = {
     'queued':               '⋯',
     'scheduled':            '⋯',
+    'not_running':          '⋯',
     'running':              '▶',
     'retried':              '▶',
     'success':              '✓',
@@ -21,7 +22,6 @@ SYMBOLS = {
     'infrastructure_fail':  '✗',
     'timedout':             '⚠',
     'canceled':             '⊝',
-    'not_running':          '⊝',
     'not_run':              '⊝',
     'no_tests':             ' ',
 }
@@ -29,6 +29,7 @@ SYMBOLS = {
 COLORS = {
     'queued':                '#AC7DD3',
     'scheduled':             '#AC7DD3',
+    'not_running':           '#AC7DD3',
     'running':               '#61D3E5',
     'retried':               '#61D3E5',
     'success':               '#39C988',
@@ -37,7 +38,6 @@ COLORS = {
     'infrastructure_failed': '#EF5B58',
     'timedout':              '#F3BA61',
     'canceled':              '#898989',
-    'not_running':           'black',
     'not_run':               'black',
     'no_tests':              'black',
 }
@@ -59,12 +59,12 @@ STATUS_PRIORITIES = {
 
     'queued':               '4',
     'scheduled':            '4',
+    'not_running':          '4',
 
     'running':              '3',
     'retried':              '3',
 
     'canceled':             '2',
-    'not_running':          '2',
     'not_run':              '2',
     'no_tests':             '2',
 
