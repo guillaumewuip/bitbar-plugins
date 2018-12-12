@@ -6,9 +6,11 @@ from datetime import datetime, timezone, timedelta
 import base64
 import pprint
 import math
+import json
 
 import requests
 from dotenv import load_dotenv, find_dotenv
+import pync
 
 SYMBOLS = {
     'queued':               '⋯',
@@ -75,6 +77,11 @@ STATUS_PRIORITIES = {
 # base64 16x16 png
 CIRCLECI_LOGO = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAA40lEQVR4AaXTJVAFQRjA8Q+XhHtBIt5n0Ir1iCUSUkk4tEuQ6IO7Q8W9kUi4FFz++LLP397N727dV36e6KjoDwHIRy8OcYFTrKEVGfCB6BU/xKIHZ3jT4RVHqEMI/jUQj2G84s2FB3QgGCJ8gmDpveEMW9jHrZZ/j9qfBkpxpWX2IRfh+HiLMKON8ABpwmcQbwoLIRCEIgiCRCwq5Z7R8JFRheZvTUiCoAIrGEGOknavNDIh+kMiPt9NpWA/BCk4VtL3zBswnoL5Irq3jcXOttHZQdp25yB5c5TbEQzzy2R8nd8BRoTIylKntNIAAAAASUVORK5CYII='
 
+NOTIF_CIRCLECI_LOGOS = {
+    'green': 'https://i.imgur.com/n4LSLwW.png',
+    'red': 'https://i.imgur.com/LXRSwiT.png'
+}
+
 pp = pprint.PrettyPrinter(indent=2)
 
 def getWorstStatusFromWorfklows(workflows):
@@ -109,9 +116,15 @@ def isOlderThan(dateToCompare, maxDay):
 def isBuildErrorWorkflow(name):
     return name == 'Build%20Error'
 
+def strToDate(dateStr):
+    return datetime.strptime(dateStr, '%Y-%m-%d %H:%M:%S.%f')
+
+def utcToDate(utc):
+    return datetime.strptime(utc, '%Y-%m-%dT%H:%M:%S.%fZ')
+
 def getLastActivityDateFromBuilds(builds):
     dates = [ build['added-at'] for build in builds ]
-    return datetime.strptime(dates[0], "%Y-%m-%dT%H:%M:%S.%fZ")
+    return utcToDate(dates[0])
 
 def getColor(status):
     return COLORS.get(status, '')
@@ -126,14 +139,37 @@ def getBuildName(build):
 
     return '?'
 
-def isBranchRunning(branch):
-    return branch.status in ['running', 'retried']
+def isRunning(status):
+    return status in ['running', 'retried', 'queued', 'scheduled']
 
-def isBranchFailed(branch):
-    return branch.status in ['failed', 'infrastructure_fail', 'timedout']
+def isFailed(status):
+    return status in ['failed', 'infrastructure_fail', 'timedout']
 
-def isBranchCanceled(branch):
-    return branch.status in ['canceled']
+def isCanceled(status):
+    return status in ['canceled']
+
+def isSuccess(status):
+    return status in ['fixed', 'success']
+
+def osxNotification(projectName, branchName, status, icon):
+    title = projectName
+    subtitle = branchName
+    message = status
+
+    appIcon = (
+        NOTIF_CIRCLECI_LOGOS['red']
+        if icon == 'red'
+        else NOTIF_CIRCLECI_LOGOS['green']
+    )
+
+    pync.notify(
+        message,
+        title=title,
+        subtitle=subtitle,
+        group=title + subtitle,
+        #  open='http://google.com',
+        appIcon=appIcon
+    )
 
 class Ressource:
     def __init__(self, baseURL, apiToken):
@@ -215,7 +251,7 @@ class Workflow:
         self.name = name
         self.status = status
 
-        self.startDate = datetime.strptime(startDate, "%Y-%m-%dT%H:%M:%S.%fZ")
+        self.startDate = utcToDate(startDate)
 
 class BuildDetail:
     def __init__(self, project, buildNumber, buildName, status):
@@ -347,20 +383,111 @@ class CircleCICheck:
         ]
 
         runningBranches = [
-            branch for branch in branches if isBranchRunning(branch)
+            branch for branch in branches if isRunning(branch.status)
         ]
 
         failedBranches = [
-            branch for branch in branches if isBranchFailed(branch)
+            branch for branch in branches if isFailed(branch.status)
         ]
 
         canceledBranches = [
-            branch for branch in branches if isBranchCanceled(branch)
+            branch for branch in branches if isCanceled(branch.status)
         ]
 
         self.nbRunnigBranches = len(runningBranches)
         self.nbFailedBranches = len(failedBranches)
         self.nbCanceledBranches = len(canceledBranches)
+
+    def getProjectsFilePath(self):
+        filepath = config['tmpDir'] + '/' + 'circleci_projects'
+        return filepath
+
+    def loadProjects(self):
+        filepath = self.getProjectsFilePath()
+
+        if not os.path.isfile(filepath):
+            return {}
+
+        with open(filepath) as data:
+            projects = json.loads(data.read())
+
+            return projects
+
+    def getProjectsBackup(self, previousProjects):
+        projects = {}
+
+        for project in self.projects:
+            projectName = project.username + '/' + project.reponame
+            projects[projectName] = {}
+
+            for branch in project.branches:
+                if isRunning(branch.status): # save last non running state
+                    if not projectName in previousProjects:
+                        continue
+
+                    if not branch.name in previousProjects[projectName]:
+                        continue
+
+                    previousBranch = previousProjects[projectName][branch.name]
+                    projects[projectName][branch.name] = {
+                        'lastActivityDate': str(previousBranch.get('lastActivityDate')),
+                        'status': previousBranch.get('status'),
+                    }
+
+                else:
+                    projects[projectName][branch.name] = {
+                        'lastActivityDate': str(branch.lastActivityDate),
+                        'status': branch.status,
+                    }
+
+        return projects
+
+    def saveProjects(self, projects):
+        filepath = self.getProjectsFilePath()
+
+        with open(filepath, 'w') as outfile:
+            json.dump(projects, outfile)
+
+    def notify(self, previousProjects, projects):
+        for projectName, project in projects.items():
+            for branchName, branch in project.items():
+                lastActivityDate = strToDate(branch.get('lastActivityDate'))
+                status = branch.get('status')
+
+                if not projectName in previousProjects:
+                    continue
+
+                if not branchName in previousProjects[projectName]:
+                    continue
+
+                previousBranch = previousProjects[projectName][branchName]
+                previousActivityDate = strToDate(previousBranch.get('lastActivityDate'))
+                previousStatus = previousBranch.get('status')
+
+                isNewState = lastActivityDate > previousActivityDate;
+
+                if not isNewState:
+                    continue
+
+                # if new fail
+                if isFailed(status):
+                    osxNotification(
+                        projectName,
+                        branchName,
+                        status,
+                        'red',
+                    )
+                    continue
+
+                # if success after failed
+                if isSuccess(status) and isFailed(previousStatus):
+                    osxNotification(
+                        projectName,
+                        branchName,
+                        status,
+                        'green',
+                    )
+                    continue
 
     def readProjects(self):
         circleCIProjects = self.ressource.getProjects()
@@ -481,7 +608,6 @@ class CircleCICheck:
 
         return '\n'.join(output)
 
-
 if __name__ == '__main__':
     load_dotenv(find_dotenv())
 
@@ -509,8 +635,14 @@ if __name__ == '__main__':
     branchDetailNumber = os.getenv('CIRCLECI_BRANCH_DETAIL_NUMBER')
     config['branchDetailNumber'] = int(branchDetailNumber) if branchDetailNumber else 10
 
+    config['tmpDir'] = os.getenv('CIRCLECI_TMP_DIRECTORY') or '/tmp'
+
     check = CircleCICheck(config)
     check.readProjects()
-
     print(check)
 
+    previousProjects = check.loadProjects()
+    projects = check.getProjectsBackup(previousProjects)
+
+    check.notify(previousProjects, projects)
+    check.saveProjects(projects)
