@@ -21,6 +21,7 @@ SYMBOLS = {
     'success':              '✓',
     'fixed':                '✓',
     'failed':               '✗',
+    'failing':              '✗',
     'infrastructure_fail':  '✗',
     'timedout':             '⚠',
     'canceled':             '⊝',
@@ -37,6 +38,7 @@ COLORS = {
     'success':               '#39C988',
     'fixed':                 '#39C988',
     'failed':                '#EF5B58',
+    'failing':               '#EF5B58',
     'infrastructure_failed': '#EF5B58',
     'timedout':              '#F3BA61',
     'canceled':              '#898989',
@@ -50,12 +52,14 @@ NEED_DETAILS_STATUS = [
     'running',
     'retried',
     'failed',
+    'failing',
     'infrastructure_failed',
     'timeout',
 ]
 
 STATUS_PRIORITIES = {
     'failed':               '5',
+    'failing':              '5',
     'infrastructure_fail':  '5',
     'timedout':             '5',
 
