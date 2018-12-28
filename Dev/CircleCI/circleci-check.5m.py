@@ -42,8 +42,8 @@ COLORS = {
     'infrastructure_failed': '#EF5B58',
     'timedout':              '#F3BA61',
     'canceled':              '#898989',
-    'not_run':               'black',
-    'no_tests':              'black',
+    'not_run':               '#777777',
+    'no_tests':              '#777777',
 }
 
 NO_SYMBOL = '❂'
