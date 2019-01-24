@@ -1,6 +1,6 @@
 #!/usr/local/bin/python3
-
 import os
+
 from dotenv import load_dotenv, find_dotenv
 from datetime import datetime
 import json
@@ -73,6 +73,32 @@ assigneePrs: search(query: "type:pr state:open assignee:{login}", type: ISSUE, f
                 title
                 mergeStateStatus
                 state
+            }}
+        }}
+    }}
+}}
+}}'''
+
+REPOS_QUERY = '''{{
+repositories: search(query: "{query}", type: REPOSITORY, first: {repositoryNumber}) {{
+    edges {{
+        node {{
+            ... on Repository {{
+                name
+                url
+                releases(first: {limitReleases}, orderBy: {{ direction: DESC, field: CREATED_AT }}) {{
+                    edges {{
+                        node {{
+                            tagName
+                            name
+                            author {{
+                                login
+                                name
+                            }}
+                            url
+                        }}
+                    }}
+                }}
             }}
         }}
     }}
@@ -401,14 +427,85 @@ class Notifications:
 
         pp.pprint(body)
 
+class Releases:
+    def __init__(self, config):
+        self.config = config
+        self.repos = config['GITHUB_RELEASES_REPOS']
+        self.numberOfReleases = config['GITHUB_RELEASES_NUMBER']
+
+    def request(self, query):
+        headers = {
+            'Authorization': 'bearer ' + self.config['GITHUB_ACCESS_TOKEN'],
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.github.merge-info-preview+json',
+        }
+        data = json.dumps({'query': query}).encode('utf-8')
+
+        req = Request(
+            'https://api.github.com/graphql',
+            data=data,
+            headers=headers,
+        )
+
+        body = urlopen(req).read()
+        return json.loads(body)
+
+    def get(self):
+        query = ' '.join([ 'repo:' + repo for repo in self.repos ])
+        queryBody = REPOS_QUERY.format(
+            query=query,
+            limitReleases=self.numberOfReleases,
+            repositoryNumber=len(self.repos),
+        )
+
+        response = self.request(queryBody)
+
+        self.repositories = response.get('data').get('repositories')
+
+    def __str__(self):
+        output = []
+
+        output.append('Releases')
+
+        repositories = self.repositories.get('edges', [])
+
+        for repository in repositories:
+            repoData = repository.get('node')
+
+            output.append('{} | href={} color={}'.format(
+                repoData.get('name'),
+                repoData.get('url') + '/releases',
+                COLORS['mainText'],
+            ))
+
+            releases = repoData.get('releases').get('edges', [])
+
+            for release in releases:
+                releaseData = release.get('node')
+
+                output.append('--{} ({}) | href={} color={}'.format(
+                    releaseData.get('tagName'),
+                    releaseData.get('author', {}).get('login'),
+                    releaseData.get('url'),
+                    COLORS['mainText'],
+                ))
+
+        output.append('---')
+        return '\n'.join(output)
+
 if __name__ == '__main__':
     config = {}
     config['GITHUB_ACCESS_TOKEN'] = os.getenv('GITHUB_ACCESS_TOKEN')
     config['GITHUB_LOGIN'] = os.getenv('GITHUB_LOGIN')
 
+    config['GITHUB_RELEASES_REPOS'] = os.getenv('GITHUB_RELEASES_REPOS').split(',') if os.getenv('GITHUB_RELEASES_REPOS') else []
+
+    config['GITHUB_RELEASES_NUMBER'] = 10
+
     args = docopt(help)
 
     notifications = Notifications(config)
+    releases = Releases(config)
     pullRequests = PullRequests(config)
 
     if args['<command>'] == 'read-notification':
@@ -417,6 +514,7 @@ if __name__ == '__main__':
     notifications.get()
     notificationsTitle = '{}⚑'.format(notifications.nbNotifications) if notifications.nbNotifications else ''
 
+    releases.get()
     pullRequests.get()
 
     print('{}|templateImage={} color={}'.format(
@@ -427,4 +525,5 @@ if __name__ == '__main__':
     print('---')
 
     print(str(notifications))
+    print(str(releases))
     print(str(pullRequests))
