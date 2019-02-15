@@ -50,8 +50,8 @@ authorPrs: search(query: "type:pr state:open author:{login}", type: ISSUE, first
                 createdAt
                 url
                 title
-                mergeStateStatus
                 state
+                isDraft
             }}
         }}
     }}
@@ -71,8 +71,8 @@ assigneePrs: search(query: "type:pr state:open assignee:{login}", type: ISSUE, f
                 createdAt
                 url
                 title
-                mergeStateStatus
                 state
+                isDraft
             }}
         }}
     }}
@@ -133,6 +133,15 @@ MERGE_STATE_EMOJIS = {
     'UNSTABLE': '❌',
 }
 
+def getPrStateEmoji(isDraft, mergeStateStatus):
+    if isDraft:
+        return '📝'
+
+    if mergeStateStatus:
+        return MERGE_STATE_EMOJIS.get(mergeStateStatus, '')
+
+    return MERGE_STATE_EMOJIS['UNKNOWN']
+
 def strToDate(dateStr):
     return datetime.strptime(dateStr, '%Y-%m-%dT%H:%M:%SZ')
 
@@ -165,6 +174,7 @@ class PullRequests:
                 'mergeStateStatus': nodeData.get('mergeStateStatus'),
                 'url': nodeData.get('url'),
                 'state': nodeData.get('state'),
+                'isDraft': nodeData.get('isDraft'),
             }
 
             if pr.get('state') != 'OPEN':
@@ -197,7 +207,7 @@ class PullRequests:
         headers = {
             'Authorization': 'bearer ' + self.config['GITHUB_ACCESS_TOKEN'],
             'Content-Type': 'application/json',
-            'Accept': 'application/vnd.github.merge-info-preview+json',
+            'Accept': 'application/vnd.github.merge-info-preview+json,application/vnd.github.shadow-cat-preview',
         }
         data = json.dumps({'query': query}).encode('utf-8')
 
@@ -226,9 +236,10 @@ class PullRequests:
         self.sort()
 
     def getEmoji(self, pr):
-        status = pr.get('mergeStateStatus')
+        isDraft = pr.get('isDraft')
+        #  status = pr.get('mergeStateStatus')
 
-        return MERGE_STATE_EMOJIS.get(status, '')
+        return getPrStateEmoji(isDraft, None)
 
     def __str__(self):
         output = []
@@ -424,8 +435,6 @@ class Notifications:
         req.get_method = lambda: 'PATCH'
 
         body =  urlopen(req).read()
-
-        pp.pprint(body)
 
 class Releases:
     def __init__(self, config):
