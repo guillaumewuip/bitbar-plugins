@@ -62,6 +62,7 @@ STATUS_PRIORITIES = {
     'failing':              '5',
     'infrastructure_fail':  '5',
     'timedout':             '5',
+    'error':                '5',
 
     'queued':               '4',
     'scheduled':            '4',
@@ -121,7 +122,10 @@ def isBuildErrorWorkflow(name):
     return name == 'Build%20Error'
 
 def strToDate(dateStr):
-    return datetime.strptime(dateStr, '%Y-%m-%d %H:%M:%S.%f')
+    try:
+        return datetime.strptime(dateStr, '%Y-%m-%d %H:%M:%S.%f')
+    except:
+        return datetime.strptime(dateStr, '%Y-%m-%d %H:%M:%S')
 
 def utcToDate(utc):
     return datetime.strptime(utc, '%Y-%m-%dT%H:%M:%S.%fZ')
