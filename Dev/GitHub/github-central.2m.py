@@ -119,7 +119,7 @@ NOTIFICATIONS_REASON_TO_EMOJIS = {
 }
 
 NOTIFICATIONS_TYPE_TO_ISSUE_PR = {
-    'Issue': 'issue',
+    'Issue': 'issues',
     'PullRequest': 'pull',
 }
 
