@@ -116,7 +116,6 @@ NOTIFICATIONS_REASON_TO_EMOJIS = {
     'state_change': '🔁',
     'subscribed': '👀',
     'review_requested': '🔍',
-    'ci_activity': '⚙️',
 }
 
 NOTIFICATIONS_TYPE_TO_ISSUE_PR = {
@@ -327,7 +326,7 @@ class Notifications:
             reason = notification.get('reason')
 
             title = notification.get('subject').get('title')
-            url = notification.get('url')
+            url = notification.get('subject').get('url')
             notificationType = notification.get('subject').get('type')
 
             repositoryName = notification.get('repository').get('full_name')
@@ -351,6 +350,10 @@ class Notifications:
         )
 
     def getLink(self, notification):
+        url = notification.get('url')
+        if not url:
+            return 'https://github.com/notifications'
+
         urlParts = notification.get('url').split('/')
         prOrIssueId = urlParts[-1]
 
