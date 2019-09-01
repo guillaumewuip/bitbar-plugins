@@ -116,6 +116,7 @@ NOTIFICATIONS_REASON_TO_EMOJIS = {
     'state_change': '🔁',
     'subscribed': '👀',
     'review_requested': '🔍',
+    'ci_activity': '⚙️',
 }
 
 NOTIFICATIONS_TYPE_TO_ISSUE_PR = {
@@ -326,7 +327,7 @@ class Notifications:
             reason = notification.get('reason')
 
             title = notification.get('subject').get('title')
-            url = notification.get('subject').get('url')
+            url = notification.get('url')
             notificationType = notification.get('subject').get('type')
 
             repositoryName = notification.get('repository').get('full_name')
