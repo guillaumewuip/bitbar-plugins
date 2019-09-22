@@ -52,6 +52,30 @@ authorPrs: search(query: "type:pr state:open author:{login}", type: ISSUE, first
                 title
                 state
                 isDraft
+                commits(last: 1) {{
+                    nodes {{
+                        commit {{
+                            checkSuites(last: 10) {{
+                                nodes {{
+                                    app {{
+                                        name
+                                    }},
+                                    conclusion,
+                                    status,
+                                    url,
+                                    checkRuns(last: 100) {{
+                                        nodes {{
+                                            name,
+                                            detailsUrl,
+                                            status,
+                                            conclusion
+                                        }}
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
             }}
         }}
     }}
@@ -73,6 +97,30 @@ assigneePrs: search(query: "type:pr state:open assignee:{login}", type: ISSUE, f
                 title
                 state
                 isDraft
+                commits(last: 1) {{
+                    nodes {{
+                        commit {{
+                            checkSuites(last: 10) {{
+                                nodes {{
+                                    app {{
+                                        name
+                                    }},
+                                    conclusion,
+                                    status,
+                                    url,
+                                    checkRuns(last: 100) {{
+                                        nodes {{
+                                            name,
+                                            detailsUrl,
+                                            status,
+                                            conclusion
+                                        }}
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
             }}
         }}
     }}
@@ -133,6 +181,20 @@ MERGE_STATE_EMOJIS = {
     'UNSTABLE': '❌',
 }
 
+CHECK_STATE_EMOJIS = {
+    'RUNNING': '⚙️',
+}
+
+CHECK_CONCLUSION_EMOJIS = {
+    'ACTION_REQUIRED': '❌',
+    'CANCELLED': '✖️',
+    'FAILURE': '❌',
+    'NEUTRAL': '✅',
+    'SUCCESS': '✅',
+    'TIMED_OUT': '❌',
+}
+
+
 def getPrStateEmoji(isDraft, mergeStateStatus):
     if isDraft:
         return '📝'
@@ -175,6 +237,7 @@ class PullRequests:
                 'url': nodeData.get('url'),
                 'state': nodeData.get('state'),
                 'isDraft': nodeData.get('isDraft'),
+                'lastCommit': nodeData.get('commits').get('nodes')[0],
             }
 
             if pr.get('state') != 'OPEN':
@@ -207,7 +270,7 @@ class PullRequests:
         headers = {
             'Authorization': 'bearer ' + self.config['GITHUB_ACCESS_TOKEN'],
             'Content-Type': 'application/json',
-            'Accept': 'application/vnd.github.merge-info-preview+json,application/vnd.github.shadow-cat-preview',
+            'Accept': 'application/vnd.github.merge-info-preview+json,application/vnd.github.shadow-cat-preview,application/vnd.github.antiope-preview+json',
         }
         data = json.dumps({'query': query}).encode('utf-8')
 
@@ -265,6 +328,38 @@ class PullRequests:
                         pr.get('url'),
                         COLORS['mainText']
                     ))
+
+                    lastCommit = pr.get('lastCommit')
+                    if len(lastCommit) > 0:
+                        checkSuites = lastCommit.get('commit').get('checkSuites').get('nodes')
+                        for checkSuite in checkSuites:
+                            status = checkSuite.get('status')
+                            conclusion = checkSuite.get('conclusion')
+
+                            emoji = CHECK_STATE_EMOJIS['RUNNING'] if not (status == 'COMPLETED') else CHECK_CONCLUSION_EMOJIS.get(conclusion)
+
+                            output.append('--{} {} | href={} color={}'.format(
+                                emoji,
+                                checkSuite.get('app').get('name'),
+                                checkSuite.get('url'),
+                                COLORS['mainText']
+                            ))
+
+                            runs = checkSuite.get('checkRuns').get('nodes')
+
+                            for run in runs:
+                                status = run.get('status')
+                                conclusion = run.get('conclusion')
+
+                                emoji = CHECK_STATE_EMOJIS['RUNNING'] if not (status == 'COMPLETED') else CHECK_CONCLUSION_EMOJIS.get(conclusion)
+
+                                output.append('----{} {} | href={} color={}'.format(
+                                    emoji,
+                                    run.get('name'),
+                                    run.get('detailsUrl'),
+                                    COLORS['mainText']
+                                ))
+
 
                 output.append('---')
 
