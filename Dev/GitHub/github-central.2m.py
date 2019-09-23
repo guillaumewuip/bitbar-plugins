@@ -43,6 +43,15 @@ authorPrs: search(query: "type:pr state:open author:{login}", type: ISSUE, first
                 number
                 repository {{
                     nameWithOwner
+                    defaultBranchRef{{
+                        target{{
+                            ...on Commit {{
+                                status {{
+                                    state
+                                }}
+                            }}
+                        }}
+                    }}
                 }}
                 author {{
                     login
@@ -88,6 +97,15 @@ assigneePrs: search(query: "type:pr state:open assignee:{login}", type: ISSUE, f
                 number
                 repository {{
                     nameWithOwner
+                    defaultBranchRef{{
+                        target{{
+                            ...on Commit {{
+                                status {{
+                                    state
+                                }}
+                            }}
+                        }}
+                    }}
                 }}
                 author {{
                     login
@@ -206,16 +224,18 @@ class PullRequests:
         self.config = config
 
         self.prs = {};
-        self.repositoryLastActivityDates = {}
 
         self.prErrors = 0
 
     def savePr(self, repositoryName, prId, pr):
         if not repositoryName in self.prs:
-            self.prs[repositoryName] = {}
+            self.prs[repositoryName] = {
+                'state': pr.get('baseBranchState'),
+                'prs': {},
+            }
 
-        if not prId in self.prs[repositoryName]:
-            self.prs[repositoryName][prId] = pr
+        if not prId in self.prs[repositoryName]['prs']:
+            self.prs[repositoryName]['prs'][prId] = pr
 
         state = pr.get('checkSuites').get('state')
         if state and not state == 'SUCCESS' and not state == 'NEUTRAL':
@@ -290,6 +310,7 @@ class PullRequests:
                 'state': nodeData.get('state'),
                 'isDraft': nodeData.get('isDraft'),
                 'checkSuites': checkSuites,
+                'baseBranchState': nodeData.get('repository').get('defaultBranchRef').get('target').get('status')
             }
 
             if pr.get('state') != 'OPEN':
@@ -300,21 +321,28 @@ class PullRequests:
 
     def sort(self):
         for repositoryName in self.prs:
-            prs = self.prs[repositoryName]
-            self.prs[repositoryName] = sorted(
+            state = self.prs[repositoryName]['state']
+            prs = self.prs[repositoryName]['prs']
+
+            listPrs = sorted(
                 prs.values(),
                 key=lambda pr: pr.get('createdAt'),
                 reverse=True
             )
 
-            self.repositoryLastActivityDates[repositoryName] = max(
-                self.prs[repositoryName],
-                key=lambda pr: pr.get('createdAt'),
-            )
+            lastActivityDate = listPrs[0].get('createdAt')
 
-        self.repositoryLastActivityDates = sorted(
-            self.repositoryLastActivityDates.items(),
-            key=lambda x: x[1]['createdAt'],
+
+            self.prs[repositoryName] = {
+                'repositoryName': repositoryName,
+                'prs': listPrs,
+                'state': state,
+                'lastActivityDate': lastActivityDate
+            }
+
+        self.prs = sorted(
+            self.prs.values(),
+            key=lambda repo: repo['lastActivityDate'],
             reverse=True
         )
 
@@ -365,14 +393,16 @@ class PullRequests:
             output.append('No pull-request| color={}'.format(COLORS['inactive']));
         else:
             output.append('Pull requests| color={}'.format(COLORS['alternativeText']))
-            for repositoryName, _ in self.repositoryLastActivityDates:
-                output.append('{} |href={} color={}'.format(
-                    repositoryName,
-                    'https://github.com/{}/pulls'.format(repositoryName),
+            for repo in self.prs:
+                defaultBranchStateEmoji = CHECK_STATE_EMOJIS[repo.get('state').get('state')] if repo.get('state') else CHECK_STATE_EMOJIS['NEUTRAL']
+                output.append('{} - {} |href={} color={}'.format(
+                    repo['repositoryName'],
+                    defaultBranchStateEmoji,
+                    'https://github.com/{}/pulls'.format(repo['repositoryName']),
                     COLORS['alternativeText'],
                 ))
 
-                prs = self.prs[repositoryName]
+                prs = repo['prs']
 
                 for pr in prs:
                     output.append('{} #{} {} | href={} color={}'.format(
