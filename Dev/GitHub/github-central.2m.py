@@ -183,9 +183,6 @@ MERGE_STATE_EMOJIS = {
 
 CHECK_STATE_EMOJIS = {
     'RUNNING': '⚙️',
-}
-
-CHECK_CONCLUSION_EMOJIS = {
     'ACTION_REQUIRED': '❌',
     'CANCELLED': '✖️',
     'FAILURE': '❌',
@@ -194,15 +191,11 @@ CHECK_CONCLUSION_EMOJIS = {
     'TIMED_OUT': '❌',
 }
 
+def getPrStateEmoji(isDraft, state):
+    emoji1 = CHECK_STATE_EMOJIS[state]
+    emoji2 = '📝' if isDraft else ''
 
-def getPrStateEmoji(isDraft, mergeStateStatus):
-    if isDraft:
-        return '📝'
-
-    if mergeStateStatus:
-        return MERGE_STATE_EMOJIS.get(mergeStateStatus, '')
-
-    return MERGE_STATE_EMOJIS['UNKNOWN']
+    return emoji1 + ' ' + emoji2
 
 def strToDate(dateStr):
     return datetime.strptime(dateStr, '%Y-%m-%dT%H:%M:%SZ')
@@ -215,6 +208,8 @@ class PullRequests:
         self.prs = {};
         self.repositoryLastActivityDates = {}
 
+        self.prErrors = 0
+
     def savePr(self, repositoryName, prId, pr):
         if not repositoryName in self.prs:
             self.prs[repositoryName] = {}
@@ -222,11 +217,68 @@ class PullRequests:
         if not prId in self.prs[repositoryName]:
             self.prs[repositoryName][prId] = pr
 
-    def readResponse(self, prsResponse):
-        nodes = prsResponse.get('edges', [])
+        state = pr.get('checkSuites').get('state')
+        if state and not state == 'SUCCESS' and not state == 'NEUTRAL':
+            self.prErrors += 1
 
-        for node in nodes:
+    def readCheckSuites(self, lastCommit):
+        if not lastCommit:
+            return {
+                'suites': [],
+                'state': None,
+            }
+        else:
+            result = {
+                'suites': [],
+                'state': None,
+            }
+
+            checkSuitesData = lastCommit.get('commit').get('checkSuites').get('nodes')
+
+            for checkSuiteData in checkSuitesData:
+                runs = []
+                runsData = checkSuiteData.get('checkRuns').get('nodes')
+
+                for runData in runsData:
+                    status = runData.get('status')
+                    conclusion = runData.get('conclusion')
+
+                    state = 'RUNNING' if not (status == 'COMPLETED') else conclusion
+
+                    run = {
+                        'state': state,
+                        'name': runData.get('name'),
+                        'url': runData.get('detailsUrl'),
+                    }
+
+                    runs += [run]
+
+                status = checkSuiteData.get('status')
+                conclusion = checkSuiteData.get('conclusion')
+
+                state = 'RUNNING' if not (status == 'COMPLETED') else conclusion
+
+                suite = {
+                    'state': state,
+                    'name': checkSuiteData.get('app').get('name'),
+                    'url': checkSuiteData.get('url'),
+                    'runs': runs,
+                }
+
+                result['suites'] += [suite]
+
+                resultState = result.get('state')
+                if (not resultState) or (resultState == 'NEUTRAL') or (resultState == 'SUCCESS'):
+                    result['state'] = suite.get('state')
+
+            return result
+
+    def readResponse(self, prsResponse):
+        for node in prsResponse:
             nodeData = node.get('node')
+
+            checkSuites = self.readCheckSuites(nodeData.get('commits').get('nodes')[0])
+
             pr = {
                 'id': nodeData.get('id'),
                 'number': nodeData.get('number'),
@@ -237,7 +289,7 @@ class PullRequests:
                 'url': nodeData.get('url'),
                 'state': nodeData.get('state'),
                 'isDraft': nodeData.get('isDraft'),
-                'lastCommit': nodeData.get('commits').get('nodes')[0],
+                'checkSuites': checkSuites,
             }
 
             if pr.get('state') != 'OPEN':
@@ -290,19 +342,21 @@ class PullRequests:
 
         response = self.request(queryBody)
 
-        authorPrs = response.get('data').get('assigneePrs')
-        assigneePrs = response.get('data').get('assigneePrs')
+        authorPrs = response.get('data').get('assigneePrs').get('edges', [])
+        assigneePrs = response.get('data').get('assigneePrs').get('edges', [])
 
-        self.readResponse(authorPrs)
-        self.readResponse(assigneePrs)
+        prs = authorPrs + assigneePrs
+        uniquePrs = list({pr.get('node').get('id'):pr for pr in prs}.values())
+
+        self.readResponse(uniquePrs)
 
         self.sort()
 
     def getEmoji(self, pr):
         isDraft = pr.get('isDraft')
-        #  status = pr.get('mergeStateStatus')
+        state = pr.get('checkSuites').get('state')
 
-        return getPrStateEmoji(isDraft, None)
+        return getPrStateEmoji(isDraft, state)
 
     def __str__(self):
         output = []
@@ -329,37 +383,24 @@ class PullRequests:
                         COLORS['mainText']
                     ))
 
-                    lastCommit = pr.get('lastCommit')
-                    if len(lastCommit) > 0:
-                        checkSuites = lastCommit.get('commit').get('checkSuites').get('nodes')
-                        for checkSuite in checkSuites:
-                            status = checkSuite.get('status')
-                            conclusion = checkSuite.get('conclusion')
+                    checkSuites = pr.get('checkSuites').get('suites')
+                    for checkSuite in checkSuites:
+                        output.append('--{} {} | href={} color={}'.format(
+                            CHECK_STATE_EMOJIS[checkSuite.get('state')],
+                            checkSuite.get('name'),
+                            checkSuite.get('url'),
+                            COLORS['mainText']
+                        ))
 
-                            emoji = CHECK_STATE_EMOJIS['RUNNING'] if not (status == 'COMPLETED') else CHECK_CONCLUSION_EMOJIS.get(conclusion)
+                        runs = checkSuite.get('runs')
 
-                            output.append('--{} {} | href={} color={}'.format(
-                                emoji,
-                                checkSuite.get('app').get('name'),
-                                checkSuite.get('url'),
+                        for run in runs:
+                            output.append('----{} {} | href={} color={}'.format(
+                                CHECK_STATE_EMOJIS[run.get('state')],
+                                run.get('name'),
+                                run.get('url'),
                                 COLORS['mainText']
                             ))
-
-                            runs = checkSuite.get('checkRuns').get('nodes')
-
-                            for run in runs:
-                                status = run.get('status')
-                                conclusion = run.get('conclusion')
-
-                                emoji = CHECK_STATE_EMOJIS['RUNNING'] if not (status == 'COMPLETED') else CHECK_CONCLUSION_EMOJIS.get(conclusion)
-
-                                output.append('----{} {} | href={} color={}'.format(
-                                    emoji,
-                                    run.get('name'),
-                                    run.get('detailsUrl'),
-                                    COLORS['mainText']
-                                ))
-
 
                 output.append('---')
 
@@ -623,10 +664,13 @@ if __name__ == '__main__':
     notificationsTitle = '{}⚑'.format(notifications.nbNotifications) if notifications.nbNotifications else ''
 
     releases.get()
-    pullRequests.get()
 
-    print('{}|templateImage={} color={}'.format(
+    pullRequests.get()
+    pullRequestsTitle = '{}✗'.format(pullRequests.prErrors) if pullRequests.prErrors else ''
+
+    print('{} {}|templateImage={} color={}'.format(
         notificationsTitle,
+        pullRequestsTitle,
         GITHUB_LOGO,
         COLORS['mainText'],
     ))
