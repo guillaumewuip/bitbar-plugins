@@ -201,6 +201,7 @@ MERGE_STATE_EMOJIS = {
 
 CHECK_STATE_EMOJIS = {
     'RUNNING': '⚙️',
+    'PENDING': '⚙️',
     'ACTION_REQUIRED': '❌',
     'CANCELLED': '✖️',
     'FAILURE': '❌',
