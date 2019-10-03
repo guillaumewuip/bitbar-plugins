@@ -239,7 +239,7 @@ class PullRequests:
             self.prs[repositoryName]['prs'][prId] = pr
 
         state = pr.get('checkSuites').get('state')
-        if state and not state == 'SUCCESS' and not state == 'NEUTRAL':
+        if state and not state == 'SUCCESS' and not state == 'RUNNING' and not state == 'NEUTRAL':
             self.prErrors += 1
 
     def readCheckSuites(self, lastCommit):
@@ -255,6 +255,7 @@ class PullRequests:
             }
 
             checkSuitesData = lastCommit.get('commit').get('checkSuites').get('nodes')
+
 
             for checkSuiteData in checkSuitesData:
                 runs = []
