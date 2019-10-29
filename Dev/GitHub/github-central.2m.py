@@ -211,7 +211,7 @@ CHECK_STATE_EMOJIS = {
 }
 
 def getPrStateEmoji(isDraft, state):
-    emoji1 = CHECK_STATE_EMOJIS[state]
+    emoji1 = CHECK_STATE_EMOJIS[state] if state else CHECK_STATE_EMOJIS['RUNNING']
     emoji2 = '📝' if isDraft else ''
 
     return emoji1 + ' ' + emoji2
