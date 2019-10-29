@@ -664,6 +664,9 @@ class Releases:
             for release in releases:
                 releaseData = release.get('node')
 
+                if not releaseData:
+                    continue
+
                 output.append('--{} ({}) | href={} color={}'.format(
                     releaseData.get('tagName'),
                     releaseData.get('author', {}).get('login'),
