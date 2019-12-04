@@ -434,8 +434,6 @@ class PullRequests:
                                 COLORS['mainText']
                             ))
 
-                output.append('---')
-
         return '\n'.join(output)
 
 class Notifications:
@@ -565,7 +563,7 @@ class Notifications:
             ))
 
         for repositoryName, _ in self.repositoryLastActivityDates:
-            output.append('--{}'.format(repositoryName))
+            output.append('-- {}'.format(repositoryName))
 
             notifications = self.notifications[repositoryName]
 
@@ -576,22 +574,7 @@ class Notifications:
                     self.getLink(notification),
                     COLORS['mainText'],
                 ))
-                output.append('----Read ↗️ | href={} color={}'.format(
-                    self.getLink(notification),
-                    COLORS['mainText']
-                ))
 
-                (command, param1, param2) = self.getMarkReadCommand(notification)
-                output.append('----Mark as read| bash={} param1={} param2={} terminal=false refresh=true color={}'.format(
-                    command,
-                    param1,
-                    param2,
-                    COLORS['mainText']
-                ))
-
-            output.append('-----')
-
-        output.append('---')
         return '\n'.join(output)
 
     def readNotification(self, notificationId):
@@ -674,7 +657,6 @@ class Releases:
                     COLORS['mainText'],
                 ))
 
-        output.append('---')
         return '\n'.join(output)
 
 if __name__ == '__main__':
@@ -710,7 +692,8 @@ if __name__ == '__main__':
         COLORS['mainText'],
     ))
     print('---')
-
     print(str(notifications))
+    print('---')
     print(str(releases))
+    print('---')
     print(str(pullRequests))
