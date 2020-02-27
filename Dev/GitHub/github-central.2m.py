@@ -204,6 +204,7 @@ CHECK_STATE_EMOJIS = {
     'PENDING': '⚙️',
     'ACTION_REQUIRED': '❌',
     'CANCELLED': '✖️',
+    'SKIPPED': '✖️',
     'FAILURE': '❌',
     'NEUTRAL': '✅',
     'SUCCESS': '✅',
@@ -290,7 +291,7 @@ class PullRequests:
                 result['suites'] += [suite]
 
                 resultState = result.get('state')
-                if (not resultState) or (resultState == 'NEUTRAL') or (resultState == 'SUCCESS'):
+                if (not resultState) or (resultState == 'SKIPPED') or (resultState == 'NEUTRAL') or (resultState == 'SUCCESS'):
                     result['state'] = suite.get('state')
 
             return result
