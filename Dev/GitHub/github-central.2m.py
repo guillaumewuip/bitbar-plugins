@@ -259,6 +259,9 @@ class PullRequests:
 
 
             for checkSuiteData in checkSuitesData:
+                if not checkSuiteData.get('app'):
+                    continue
+
                 runs = []
                 runsData = checkSuiteData.get('checkRuns').get('nodes')
 
