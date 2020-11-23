@@ -1,0 +1,1 @@
+/Users/guillaumeclochard/bitbar-plugins/backups.2m.sh
