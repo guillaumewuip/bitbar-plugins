@@ -41,7 +41,7 @@ function lastUpdateReadable() {
   fi
 }
 
-if [ "$(status documents)" = "running" ] || [ "$(status mails)" = "running" || [ "$(status sync)" = "running" ]; then
+if [ "$(status documents)" = "running" ] || [ "$(status mails)" = "running" ] || [ "$(status sync)" = "running" ]; then
   echo "| templateImage=$LOGO_RUNNING"
 else
   echo "| templateImage=$LOGO"
