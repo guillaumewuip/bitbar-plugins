@@ -48,9 +48,6 @@ else
 fi
 
 echo "---"
-echo "Calendar"
-khal list --format "{start-time} {title} | color=#333" Today 7d
-echo "---"
 echo "Backups"
 echo "Sync: $(status sync) - $(lastUpdateReadable sync) | color=#333"
 echo "Documents: $(status documents) - $(lastUpdateReadable documents) | color=#333"

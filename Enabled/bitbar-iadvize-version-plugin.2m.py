@@ -1,1 +1,0 @@
-/Users/guillaumeclochard/dev/version-badge-api/bitbar-iadvize-version-plugin.2m.py

@@ -1,1 +1,0 @@
-/Users/guillaumeclochard/bitbar-plugins/dashboard.1m.sh
