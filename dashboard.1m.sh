@@ -41,7 +41,7 @@ function lastUpdateReadable() {
   fi
 }
 
-if [ "$(status documents)" = "running" ] || [ "$(status mails)" = "running" ] || [ "$(status sync)" = "running" ]; then
+if [ "$(status documents)" = "running" ] || [ "$(status mails)" = "running" ] || [ "$(status vdirs)" = "running" ]; then
   echo "| templateImage=$LOGO_RUNNING"
 else
   echo "| templateImage=$LOGO"
@@ -49,6 +49,6 @@ fi
 
 echo "---"
 echo "Backups"
-echo "Sync: $(status sync) - $(lastUpdateReadable sync) | color=#333"
 echo "Documents: $(status documents) - $(lastUpdateReadable documents) | color=#333"
 echo "Mails: $(status mails) - $(lastUpdateReadable mails) | color=#333"
+echo "Vdirs: $(status vdirs) - $(lastUpdateReadable vdirs) | color=#333"
