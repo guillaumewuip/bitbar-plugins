@@ -64,6 +64,9 @@ authorPrs: search(query: "type:pr state:open author:{login}", type: ISSUE, first
                 commits(last: 1) {{
                     nodes {{
                         commit {{
+                            status {{
+                              state
+                            }}
                             checkSuites(last: 10) {{
                                 nodes {{
                                     app {{
@@ -118,6 +121,9 @@ assigneePrs: search(query: "type:pr state:open assignee:{login}", type: ISSUE, f
                 commits(last: 1) {{
                     nodes {{
                         commit {{
+                            status {{
+                              state
+                            }}
                             checkSuites(last: 10) {{
                                 nodes {{
                                     app {{
@@ -149,7 +155,7 @@ REPOS_QUERY = '''{{
 repositories: search(query: "{query}", type: REPOSITORY, first: {repositoryNumber}) {{
     edges {{
         node {{
-            ... on Repository {{
+          ... on Repository {{
                 name
                 url
                 releases(first: {limitReleases}, orderBy: {{ direction: DESC, field: CREATED_AT }}) {{
@@ -187,16 +193,6 @@ NOTIFICATIONS_REASON_TO_EMOJIS = {
 NOTIFICATIONS_TYPE_TO_ISSUE_PR = {
     'Issue': 'issues',
     'PullRequest': 'pull',
-}
-
-MERGE_STATE_EMOJIS = {
-    'BEHIND': '❌',
-    'BLOCKED': '❌',
-    'DIRTY': '❌',
-    'CLEAN': '✅',
-    'HAS_HOOKS': '⚙️',
-    'UNKNOWN': '❔',
-    'UNSTABLE': '❌',
 }
 
 CHECK_STATE_EMOJIS = {
@@ -240,7 +236,7 @@ class PullRequests:
             self.prs[repositoryName]['prs'][prId] = pr
 
         state = pr.get('checkSuites').get('state')
-        if state and not state == 'SUCCESS' and not state == 'RUNNING' and not state == 'NEUTRAL':
+        if state and not state == 'SUCCESS' and not state == 'PENDING' and not state == 'RUNNING' and not state == 'NEUTRAL':
             self.prErrors += 1
 
     def readCheckSuites(self, lastCommit):
@@ -250,13 +246,13 @@ class PullRequests:
                 'state': None,
             }
         else:
+            status = lastCommit.get('commit').get('status')
             result = {
                 'suites': [],
-                'state': None,
+                'state': 'PENDING' if not status else status.get('state')
             }
 
             checkSuitesData = lastCommit.get('commit').get('checkSuites').get('nodes')
-
 
             for checkSuiteData in checkSuitesData:
                 if not checkSuiteData.get('app'):
