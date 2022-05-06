@@ -1,1 +1,0 @@
-../Dev/yabai.2s.sh
