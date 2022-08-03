@@ -410,7 +410,7 @@ class PullRequests:
                     output.append('{} #{} {} | href={} color={}'.format(
                         self.getEmoji(pr),
                         pr.get('number'),
-                        pr.get('title'),
+                        pr.get('title').replace('|', '-'),
                         pr.get('url'),
                         COLORS['mainText']
                     ))
@@ -419,8 +419,8 @@ class PullRequests:
                     for checkSuite in checkSuites:
                         output.append('--{} {} | href={} color={}'.format(
                             CHECK_STATE_EMOJIS[checkSuite.get('state')],
-                            checkSuite.get('name'),
-                            checkSuite.get('url'),
+                            checkSuite.get('name').replace('|', '-'),
+                            checkSuite.get('url').replace('|', '-'),
                             COLORS['mainText']
                         ))
 
@@ -429,8 +429,8 @@ class PullRequests:
                         for run in runs:
                             output.append('----{} {} | href={} color={}'.format(
                                 CHECK_STATE_EMOJIS[run.get('state')],
-                                run.get('name'),
-                                run.get('url'),
+                                run.get('name').replace('|', '-'),
+                                run.get('url').replace('|', '-'),
                                 COLORS['mainText']
                             ))
 
@@ -570,7 +570,7 @@ class Notifications:
             for notification in notifications:
                 output.append('--{} {} | href={} color={}'.format(
                     self.getReasonEmoji(notification),
-                    notification['title'],
+                    notification['title'].replace('|', '-'),
                     self.getLink(notification),
                     COLORS['mainText'],
                 ))
@@ -637,7 +637,7 @@ class Releases:
             repoData = repository.get('node')
 
             output.append('{} | href={} color={}'.format(
-                repoData.get('name'),
+                repoData.get('name').replace('|', '-'),
                 repoData.get('url') + '/releases',
                 COLORS['mainText'],
             ))
