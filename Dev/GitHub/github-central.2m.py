@@ -319,7 +319,9 @@ class PullRequests:
                 continue
 
             repositoryName = nodeData.get('repository').get('nameWithOwner')
-            self.savePr(repositoryName, pr.get('id'), pr);
+
+            if repositoryName not in self.config['GITHUB_HIDDEN_PRS_REPOS']:
+                self.savePr(repositoryName, pr.get('id'), pr);
 
     def sort(self):
         for repositoryName in self.prs:
@@ -667,6 +669,8 @@ if __name__ == '__main__':
     config['GITHUB_RELEASES_REPOS'] = os.getenv('GITHUB_RELEASES_REPOS').split(',') if os.getenv('GITHUB_RELEASES_REPOS') else []
 
     config['GITHUB_RELEASES_NUMBER'] = 10
+
+    config['GITHUB_HIDDEN_PRS_REPOS'] = os.getenv('GITHUB_HIDDEN_PRS_REPOS').split(',') if os.getenv('GITHUB_HIDDEN_PRS_REPOS') else []
 
     args = docopt(help)
 
