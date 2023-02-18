@@ -678,6 +678,7 @@ if __name__ == '__main__':
     releases = Releases(config)
     pullRequests = PullRequests(config)
 
+    pullRequests.get()
     if args['<command>'] == 'read-notification':
         notifications.readNotification(args['<param>'])
 
@@ -686,7 +687,6 @@ if __name__ == '__main__':
 
     releases.get()
 
-    pullRequests.get()
     pullRequestsTitle = '{}✗'.format(pullRequests.prErrors) if pullRequests.prErrors else ''
 
     print('{} {} | templateImage={} color={} size=11'.format(
