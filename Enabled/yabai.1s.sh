@@ -62,7 +62,7 @@ SELECTRIGHT=' '
 # Change your font here! Make sure you only change the stuff on the right of the '='. You can get the exact name of your font from the FontBook application on MacOS.
 # A monowidth font (such as FuraCode) is recomended. Ligatures are a plus!
 
-FONT=' | trim=true | size=11'
+FONT=' | trim=true | size=14'
 
 # Change your space indicies here! Add a space between the indicies if you would like padding.
 # Feel free to use this as a template and increase the $SPACES array as you see fit. 
@@ -122,7 +122,8 @@ done
 if [ "$STYLE" = "NUMBER" ]; then  
   while [ $i -le $TOTAL ]; do
     if [ $i -eq $CURRENT ]; then
-      STRING+="$COLOR$SELECTLEFT${i}$SELECTRIGHT$DEFAULT"
+      LABEL=\\u$((2780 + $i - 1))
+      STRING+="$COLOR$SELECTLEFT$LABEL$SELECTRIGHT$DEFAULT"
       i=$(( $i + 1 ))
     else
       STRING+="$DIV${i}$DIV"
