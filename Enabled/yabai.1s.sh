@@ -39,13 +39,13 @@ BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 WHITE='\033[0;37m'
-RESET='\033[m'
+RESET='\033[0m'
 
 # Change your color here to one of the options above! $COLOR will be the color of the current space.
 # $DEFAULT will be the color of the other spaces
 
 COLOR=$BLACK
-DEFAULT=$WHITE
+DEFAULT='\033[38;5;247m'
 
 # Change your icons here! $LEFT and $RIGHT refer to the icons on either end of the bar and $DIV refers to the icon between spaces.
 # e.x. if $LEFT='\〈', $RIGHT='\〉', and $DIV='|', your bar would look like this ⟨ ｜ ⟩.
