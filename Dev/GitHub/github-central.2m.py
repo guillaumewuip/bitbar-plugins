@@ -64,7 +64,7 @@ authorPrs: search(query: "type:pr state:open author:{login}", type: ISSUE, first
                 commits(last: 1) {{
                     nodes {{
                         commit {{
-                            status {{
+                            statusCheckRollup {{
                               state
                             }}
                             checkSuites(last: 10) {{
@@ -121,18 +121,12 @@ assigneePrs: search(query: "type:pr state:open assignee:{login}", type: ISSUE, f
                 commits(last: 1) {{
                     nodes {{
                         commit {{
-                            status {{
+                            statusCheckRollup {{
                               state
                             }}
-                            checkSuites(last: 10) {{
+                            checkSuites(last: 100) {{
                                 nodes {{
-                                    app {{
-                                        name
-                                    }},
-                                    conclusion,
-                                    status,
-                                    url,
-                                    checkRuns(last: 100) {{
+                                    checkRuns(last: 10) {{
                                         nodes {{
                                             name,
                                             detailsUrl,
@@ -242,23 +236,19 @@ class PullRequests:
     def readCheckSuites(self, lastCommit):
         if not lastCommit:
             return {
-                'suites': [],
+                'runs': [],
                 'state': None,
             }
         else:
-            status = lastCommit.get('commit').get('status')
+            status = lastCommit.get('commit').get('statusCheckRollup')
             result = {
-                'suites': [],
+                'runs': [],
                 'state': 'PENDING' if not status else status.get('state')
             }
 
             checkSuitesData = lastCommit.get('commit').get('checkSuites').get('nodes')
 
             for checkSuiteData in checkSuitesData:
-                if not checkSuiteData.get('app'):
-                    continue
-
-                runs = []
                 runsData = checkSuiteData.get('checkRuns').get('nodes')
 
                 for runData in runsData:
@@ -273,25 +263,7 @@ class PullRequests:
                         'url': runData.get('detailsUrl'),
                     }
 
-                    runs += [run]
-
-                status = checkSuiteData.get('status')
-                conclusion = checkSuiteData.get('conclusion')
-
-                state = 'RUNNING' if not (status == 'COMPLETED') else conclusion
-
-                suite = {
-                    'state': state,
-                    'name': checkSuiteData.get('app').get('name'),
-                    'url': checkSuiteData.get('url'),
-                    'runs': runs,
-                }
-
-                result['suites'] += [suite]
-
-                resultState = result.get('state')
-                if (not resultState) or (resultState == 'SKIPPED') or (resultState == 'NEUTRAL') or (resultState == 'SUCCESS'):
-                    result['state'] = suite.get('state')
+                    result['runs'] += [run]
 
             return result
 
@@ -417,24 +389,15 @@ class PullRequests:
                         COLORS['mainText']
                     ))
 
-                    checkSuites = pr.get('checkSuites').get('suites')
-                    for checkSuite in checkSuites:
+                    runs = pr.get('checkSuites').get('runs')
+
+                    for run in runs:
                         output.append('--{} {} | href={} color={}'.format(
-                            CHECK_STATE_EMOJIS[checkSuite.get('state')],
-                            checkSuite.get('name').replace('|', '-'),
-                            checkSuite.get('url').replace('|', '-'),
+                            CHECK_STATE_EMOJIS[run.get('state')],
+                            run.get('name').replace('|', '-'),
+                            run.get('url').replace('|', '-'),
                             COLORS['mainText']
                         ))
-
-                        runs = checkSuite.get('runs')
-
-                        for run in runs:
-                            output.append('----{} {} | href={} color={}'.format(
-                                CHECK_STATE_EMOJIS[run.get('state')],
-                                run.get('name').replace('|', '-'),
-                                run.get('url').replace('|', '-'),
-                                COLORS['mainText']
-                            ))
 
         return '\n'.join(output)
 
