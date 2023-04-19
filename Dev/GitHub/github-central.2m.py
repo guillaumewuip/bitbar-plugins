@@ -118,6 +118,7 @@ assigneePrs: search(query: "type:pr state:open assignee:{login}", type: ISSUE, f
                 title
                 state
                 isDraft
+                headRefName
                 commits(last: 1) {{
                     nodes {{
                         commit {{
@@ -283,6 +284,7 @@ class PullRequests:
                 'url': nodeData.get('url'),
                 'state': nodeData.get('state'),
                 'isDraft': nodeData.get('isDraft'),
+                'branch': nodeData.get('headRefName'),
                 'checkSuites': checkSuites,
                 'baseBranchState': nodeData.get('repository').get('defaultBranchRef').get('target').get('status')
             }
@@ -388,6 +390,14 @@ class PullRequests:
                         pr.get('url'),
                         COLORS['mainText']
                     ))
+
+                    output.append('--{} | color={} terminal=false bash="/bin/bash" param1="-c" param2="echo {} | pbcopy"'.format(
+                        pr.get('branch'),
+                        COLORS['mainText'],
+                        pr.get('branch'),
+                    ))
+
+                    output.append('-- --- | color={}'.format(COLORS['inactive']))
 
                     runs = pr.get('checkSuites').get('runs')
 
