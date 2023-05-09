@@ -218,7 +218,10 @@ class PullRequests:
 
         self.prs = {};
 
-        self.prErrors = 0
+        self.counts = {
+            'totalPrs': 0,
+            'errorPrs': 0,
+        }
 
     def savePr(self, repositoryName, prId, pr):
         if not repositoryName in self.prs:
@@ -230,9 +233,11 @@ class PullRequests:
         if not prId in self.prs[repositoryName]['prs']:
             self.prs[repositoryName]['prs'][prId] = pr
 
+        self.counts['totalPrs'] += 1
+
         state = pr.get('checkSuites').get('state')
         if state and not state == 'SUCCESS' and not state == 'PENDING' and not state == 'RUNNING' and not state == 'NEUTRAL':
-            self.prErrors += 1
+            self.counts['errorPrs'] += 1
 
     def readCheckSuites(self, lastCommit):
         if not lastCommit:
@@ -660,7 +665,7 @@ if __name__ == '__main__':
 
     releases.get()
 
-    pullRequestsTitle = '{}✗'.format(pullRequests.prErrors) if pullRequests.prErrors else ''
+    pullRequestsTitle = '{}✗/{}'.format(pullRequests.counts['errorPrs'], pullRequests.counts['totalPrs'])
 
     print('{} {} | templateImage={} color={} size=11'.format(
         notificationsTitle,
