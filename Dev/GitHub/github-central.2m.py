@@ -396,7 +396,7 @@ class PullRequests:
                         COLORS['mainText']
                     ))
 
-                    output.append('--{} | color={} terminal=false bash="/bin/bash" param1="-c" param2="echo {} | pbcopy"'.format(
+                    output.append('--{} | color={} terminal=false bash="/bin/bash" param1="-c" param2="echo -n {} | pbcopy"'.format(
                         pr.get('branch'),
                         COLORS['mainText'],
                         pr.get('branch'),
