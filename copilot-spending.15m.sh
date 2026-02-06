@@ -5,7 +5,9 @@
 # <xbar.desc>Shows GitHub Copilot premium request usage percentage</xbar.desc>
 # <swiftbar.hideRunInTerminal>true</swiftbar.hideRunInTerminal>
 
-set -a && source .env && set +a
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
+set -a && source $SCRIPT_DIR/.env && set +a
 
 # ========== CONFIGURATION ==========
 if [[ -z "$GITHUB_TOKEN" ]]; then
