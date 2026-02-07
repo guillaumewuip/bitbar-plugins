@@ -5,8 +5,10 @@
 # <xbar.desc>Shows GitHub Copilot premium request usage percentage</xbar.desc>
 # <swiftbar.hideRunInTerminal>true</swiftbar.hideRunInTerminal>
 
+# create a .env file in the same directory with:
+# GITHUB_TOKEN=your_github_token
+# make sure to keep it private and list it in gitignore
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-
 set -a && source $SCRIPT_DIR/.env && set +a
 
 # ========== CONFIGURATION ==========
@@ -74,7 +76,7 @@ empty=$((bar_len - filled))
 bar=$(printf '▓%.0s' $(seq 1 $filled 2>/dev/null) || echo "")
 bar+=$(printf '░%.0s' $(seq 1 $empty 2>/dev/null) || echo "")
 
-echo "${pct}% | color=$color sfcolor=$color"
+echo ":xserve.raid: ${pct}% | color=$color sfcolor=$color"
 echo "---"
 echo "Premium Requests | size=11"
 echo "$bar ${total_requests}/${PLAN_LIMIT} | font=Menlo size=13"
