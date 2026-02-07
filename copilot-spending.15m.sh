@@ -63,7 +63,7 @@ else
 fi
 
 if [[ $pct_int -lt 50 ]]; then
-	color="#4a4a4a"
+	color="#000"
 elif [[ $pct_int -lt 80 ]]; then
 	color="#f39c12"
 else
