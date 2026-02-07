@@ -38,8 +38,7 @@ fi
 # Parse premium_interactions quota snapshot
 unlimited=$(echo "$body" | jq -r '.quota_snapshots.premium_interactions.unlimited // false')
 if [[ "$unlimited" == "true" ]]; then
-	pct="0.0"
-	pct_int=0
+	pct="0"
 	total_requests="∞"
 	PLAN_LIMIT="∞"
 else
@@ -49,29 +48,26 @@ else
 
 	# Calculate consumed percentage (capped at 100)
 	pct=$(echo "scale=1; (100 - $percent_remaining)" | bc)
-	pct_float=$(echo "$pct" | awk '{printf "%.1f", $1}')
-	if (($(echo "$pct_float > 100" | bc -l))); then
-		pct="100.0"
-	else
-		pct="$pct_float"
+	if (($(echo "$pct > 100" | bc -l))); then
+		pct="100"
 	fi
-	pct_int=${pct%.*}
+	pct=${pct%.*}
 
 	# Calculate used requests
 	total_requests=$((entitlement - remaining))
 	PLAN_LIMIT=$entitlement
 fi
 
-if [[ $pct_int -lt 50 ]]; then
+if [[ $pct -lt 50 ]]; then
 	color="#000"
-elif [[ $pct_int -lt 80 ]]; then
+elif [[ $pct -lt 80 ]]; then
 	color="#f39c12"
 else
 	color="#e74c3c"
 fi
 
 bar_len=10
-filled=$((pct_int * bar_len / 100))
+filled=$((pct * bar_len / 100))
 empty=$((bar_len - filled))
 bar=$(printf '▓%.0s' $(seq 1 $filled 2>/dev/null) || echo "")
 bar+=$(printf '░%.0s' $(seq 1 $empty 2>/dev/null) || echo "")
