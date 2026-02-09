@@ -58,12 +58,12 @@ else
 	PLAN_LIMIT=$entitlement
 fi
 
-if [[ $pct -lt 50 ]]; then
+if [[ $pct -lt 70 ]]; then
 	color="#000"
-elif [[ $pct -lt 80 ]]; then
-	color="#f39c12"
+elif [[ $pct -lt 85 ]]; then
+	color="#cf7d02"
 else
-	color="#e74c3c"
+	color="#c72818"
 fi
 
 bar_len=10
